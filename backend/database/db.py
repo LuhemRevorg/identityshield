@@ -7,7 +7,8 @@ from pathlib import Path
 
 from config import DATABASE_PATH
 from database.schemas import (
-    UserDB, EnrollmentSessionDB, EmbeddingDB, VerificationDB, EmbeddingType
+    UserDB, EnrollmentSessionDB, EmbeddingDB, VerificationDB, EmbeddingType,
+    AuthSessionDB
 )
 
 # SQL schema
@@ -15,7 +16,16 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     created_at TIMESTAMP NOT NULL,
-    email TEXT
+    email TEXT UNIQUE,
+    password_hash TEXT,
+    name TEXT
+);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    created_at TIMESTAMP NOT NULL,
+    expires_at TIMESTAMP NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS enrollment_sessions (
@@ -49,6 +59,8 @@ CREATE INDEX IF NOT EXISTS idx_embeddings_user ON embeddings(user_id);
 CREATE INDEX IF NOT EXISTS idx_embeddings_type ON embeddings(embedding_type);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON enrollment_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_verifications_user ON verifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 """
 
 
@@ -98,7 +110,9 @@ class Database:
                 return UserDB(
                     id=row["id"],
                     created_at=datetime.fromisoformat(row["created_at"]),
-                    email=row["email"]
+                    email=row["email"],
+                    password_hash=row["password_hash"],
+                    name=row["name"]
                 )
         return None
 
@@ -108,6 +122,75 @@ class Database:
         if user:
             return user
         return await self.create_user(user_id, email)
+
+    async def get_user_by_email(self, email: str) -> Optional[UserDB]:
+        """Get user by email."""
+        async with self.conn.execute(
+            "SELECT * FROM users WHERE email = ?", (email,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return UserDB(
+                    id=row["id"],
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    email=row["email"],
+                    password_hash=row["password_hash"],
+                    name=row["name"]
+                )
+        return None
+
+    async def create_user_with_password(
+        self, user_id: str, email: str, password_hash: str, name: Optional[str] = None
+    ) -> UserDB:
+        """Create a new user with password."""
+        now = datetime.utcnow()
+        await self.conn.execute(
+            "INSERT INTO users (id, created_at, email, password_hash, name) VALUES (?, ?, ?, ?, ?)",
+            (user_id, now.isoformat(), email, password_hash, name)
+        )
+        await self.conn.commit()
+        return UserDB(id=user_id, created_at=now, email=email, password_hash=password_hash, name=name)
+
+    # Auth session operations
+    async def create_auth_session(
+        self, session_id: str, user_id: str, expires_at: datetime
+    ) -> AuthSessionDB:
+        """Create a new auth session."""
+        now = datetime.utcnow()
+        await self.conn.execute(
+            "INSERT INTO auth_sessions (id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+            (session_id, user_id, now.isoformat(), expires_at.isoformat())
+        )
+        await self.conn.commit()
+        return AuthSessionDB(id=session_id, user_id=user_id, created_at=now, expires_at=expires_at)
+
+    async def get_auth_session(self, session_id: str) -> Optional[AuthSessionDB]:
+        """Get auth session by ID."""
+        async with self.conn.execute(
+            "SELECT * FROM auth_sessions WHERE id = ?", (session_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return AuthSessionDB(
+                    id=row["id"],
+                    user_id=row["user_id"],
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    expires_at=datetime.fromisoformat(row["expires_at"])
+                )
+        return None
+
+    async def delete_auth_session(self, session_id: str):
+        """Delete an auth session (logout)."""
+        await self.conn.execute("DELETE FROM auth_sessions WHERE id = ?", (session_id,))
+        await self.conn.commit()
+
+    async def delete_expired_sessions(self):
+        """Clean up expired sessions."""
+        now = datetime.utcnow()
+        await self.conn.execute(
+            "DELETE FROM auth_sessions WHERE expires_at < ?", (now.isoformat(),)
+        )
+        await self.conn.commit()
 
     # Enrollment session operations
     async def create_session(self, session_id: str, user_id: str) -> EnrollmentSessionDB:

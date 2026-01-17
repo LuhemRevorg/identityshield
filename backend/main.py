@@ -1,10 +1,18 @@
 """FastAPI application for IdentityShield backend."""
 import logging
+import os
+import base64
+import tempfile
+import uuid
+from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 from typing import Optional
 
+import httpx
+import bcrypt
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -22,6 +30,10 @@ from database.schemas import (
     ConversationMessageResponse,
     ProfileResponse,
     VerifyResponse,
+    RegisterRequest,
+    LoginRequest,
+    AuthResponse,
+    UserResponse,
 )
 from services.enrollment import enrollment_service
 from services.verification import verification_service
@@ -65,11 +77,142 @@ app.add_middleware(
 )
 
 
+# Password hashing helpers
+def hash_password(password: str) -> str:
+    """Hash a password using bcrypt."""
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Verify a password against a hash."""
+    return bcrypt.checkpw(password.encode(), password_hash.encode())
+
+
+# Session duration
+SESSION_DURATION_DAYS = 30
+
+
 # Health check
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "IdentityShield"}
+
+
+# ============== Auth Endpoints ==============
+
+@app.post("/api/auth/register", response_model=AuthResponse)
+async def register(request: RegisterRequest):
+    """Register a new user."""
+    try:
+        # Check if email already exists
+        existing_user = await db.get_user_by_email(request.email)
+        if existing_user:
+            return AuthResponse(success=False, message="Email already registered")
+
+        # Create user
+        user_id = str(uuid.uuid4())
+        hashed = hash_password(request.password)
+        user = await db.create_user_with_password(
+            user_id=user_id,
+            email=request.email,
+            password_hash=hashed,
+            name=request.name
+        )
+
+        # Create session
+        session_id = str(uuid.uuid4())
+        expires_at = datetime.utcnow() + timedelta(days=SESSION_DURATION_DAYS)
+        await db.create_auth_session(session_id, user_id, expires_at)
+
+        return AuthResponse(
+            success=True,
+            user_id=user_id,
+            session_token=session_id,
+            name=user.name,
+            email=user.email
+        )
+    except Exception as e:
+        logger.error(f"Error registering user: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/auth/login", response_model=AuthResponse)
+async def login(request: LoginRequest):
+    """Login user."""
+    try:
+        # Find user by email
+        user = await db.get_user_by_email(request.email)
+        if not user or not user.password_hash:
+            return AuthResponse(success=False, message="Invalid email or password")
+
+        # Verify password
+        if not verify_password(request.password, user.password_hash):
+            return AuthResponse(success=False, message="Invalid email or password")
+
+        # Create session
+        session_id = str(uuid.uuid4())
+        expires_at = datetime.utcnow() + timedelta(days=SESSION_DURATION_DAYS)
+        await db.create_auth_session(session_id, user.id, expires_at)
+
+        return AuthResponse(
+            success=True,
+            user_id=user.id,
+            session_token=session_id,
+            name=user.name,
+            email=user.email
+        )
+    except Exception as e:
+        logger.error(f"Error logging in: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/auth/logout")
+async def logout(session_token: str = Form(...)):
+    """Logout user."""
+    try:
+        await db.delete_auth_session(session_token)
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error logging out: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/auth/me", response_model=UserResponse)
+async def get_current_user(session_token: str):
+    """Get current user from session token."""
+    try:
+        # Get session
+        session = await db.get_auth_session(session_token)
+        if not session:
+            raise HTTPException(status_code=401, detail="Invalid or expired session")
+
+        # Check if expired
+        if session.expires_at < datetime.utcnow():
+            await db.delete_auth_session(session_token)
+            raise HTTPException(status_code=401, detail="Session expired")
+
+        # Get user
+        user = await db.get_user(session.user_id)
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+
+        # Check if user has a profile (embeddings)
+        embedding_counts = await db.get_embedding_counts(user.id)
+        has_profile = sum(embedding_counts.values()) > 0
+
+        return UserResponse(
+            user_id=user.id,
+            email=user.email or "",
+            name=user.name,
+            created_at=user.created_at,
+            has_profile=has_profile
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting current user: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============== Enrollment Endpoints ==============
@@ -88,13 +231,17 @@ async def start_enrollment(request: EnrollmentStartRequest):
             email=request.email
         )
 
-        # Initialize conversation
-        opening = conversation_manager.start_conversation(session_id)
+        # Initialize conversation with topic
+        opening, audio_base64 = await conversation_manager.start_conversation(
+            session_id=session_id,
+            topic=request.topic or "General Chat"
+        )
 
         return EnrollmentStartResponse(
             session_id=session_id,
             user_id=user_id,
-            message=opening
+            message=opening,
+            audio_base64=audio_base64
         )
     except Exception as e:
         logger.error(f"Error starting enrollment: {e}")
@@ -191,6 +338,35 @@ async def get_profile(user_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/sessions/{user_id}")
+async def get_user_sessions(user_id: str):
+    """Get enrollment sessions for a user."""
+    try:
+        user = await db.get_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        sessions = await db.get_user_sessions(user_id)
+
+        return {
+            "sessions": [
+                {
+                    "id": s.id,
+                    "started_at": s.started_at.isoformat(),
+                    "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+                    "duration_seconds": s.duration_seconds,
+                    "objectives_covered": s.objectives_covered
+                }
+                for s in sessions
+            ]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting sessions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============== Conversation Endpoints ==============
 
 @app.post("/api/conversation/message", response_model=ConversationMessageResponse)
@@ -201,7 +377,7 @@ async def send_message(request: ConversationMessageRequest):
     Returns AI response and indicates if conversation should end.
     """
     try:
-        response, should_end, progress = await conversation_manager.get_response(
+        response, should_end, progress, audio_base64 = await conversation_manager.get_response(
             session_id=request.session_id,
             user_message=request.message,
             elapsed_time=request.elapsed_time
@@ -210,12 +386,75 @@ async def send_message(request: ConversationMessageRequest):
         return ConversationMessageResponse(
             response=response,
             should_end=should_end,
-            objectives_progress=progress
+            objectives_progress=progress,
+            audio_base64=audio_base64
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error in conversation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============== Transcription Endpoint ==============
+
+class TranscribeRequest(BaseModel):
+    audio_base64: str  # Base64 encoded audio (webm/mp3/wav)
+
+
+class TranscribeResponse(BaseModel):
+    text: str
+    success: bool
+
+
+@app.post("/api/transcribe", response_model=TranscribeResponse)
+async def transcribe_audio(request: TranscribeRequest):
+    """
+    Transcribe audio using Groq's Whisper API.
+    """
+    try:
+        groq_api_key = os.getenv("GROQ_API_KEY", "")
+        if not groq_api_key:
+            raise HTTPException(status_code=500, detail="Groq API key not configured")
+
+        # Decode base64 audio
+        audio_data = base64.b64decode(request.audio_base64)
+
+        # Save to temp file (Groq requires file upload)
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
+            f.write(audio_data)
+            temp_path = f.name
+
+        try:
+            # Call Groq Whisper API
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                with open(temp_path, "rb") as audio_file:
+                    files = {"file": ("audio.webm", audio_file, "audio/webm")}
+                    data = {"model": "whisper-large-v3"}
+
+                    response = await client.post(
+                        "https://api.groq.com/openai/v1/audio/transcriptions",
+                        headers={"Authorization": f"Bearer {groq_api_key}"},
+                        files=files,
+                        data=data,
+                    )
+
+                    if response.status_code != 200:
+                        logger.error(f"Groq Whisper error: {response.status_code} - {response.text}")
+                        raise HTTPException(status_code=500, detail="Transcription failed")
+
+                    result = response.json()
+                    transcript = result.get("text", "").strip()
+
+                    return TranscribeResponse(text=transcript, success=bool(transcript))
+        finally:
+            # Clean up temp file
+            os.unlink(temp_path)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error transcribing audio: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

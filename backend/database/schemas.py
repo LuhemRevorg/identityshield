@@ -16,6 +16,7 @@ class EmbeddingType(str, Enum):
 class EnrollmentStartRequest(BaseModel):
     user_id: Optional[str] = None
     email: Optional[str] = None
+    topic: Optional[str] = "General Chat"  # Conversation topic
 
 
 class EnrollmentChunkRequest(BaseModel):
@@ -42,6 +43,7 @@ class EnrollmentStartResponse(BaseModel):
     session_id: str
     user_id: str
     message: str
+    audio_base64: Optional[str] = None  # ElevenLabs TTS audio
 
 
 class EnrollmentChunkResponse(BaseModel):
@@ -61,6 +63,7 @@ class ConversationMessageResponse(BaseModel):
     response: str
     should_end: bool
     objectives_progress: float  # 0-1 indicating how many objectives covered
+    audio_base64: Optional[str] = None  # ElevenLabs TTS audio
 
 
 class FeatureBreakdown(BaseModel):
@@ -103,11 +106,49 @@ class VerificationHistory(BaseModel):
     confidence: float
 
 
+# Auth request/response models
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class AuthResponse(BaseModel):
+    success: bool
+    user_id: Optional[str] = None
+    session_token: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    message: Optional[str] = None
+
+
+class UserResponse(BaseModel):
+    user_id: str
+    email: str
+    name: Optional[str] = None
+    created_at: datetime
+    has_profile: bool = False
+
+
 # Database models (for internal use)
 class UserDB(BaseModel):
     id: str
     created_at: datetime
     email: Optional[str] = None
+    password_hash: Optional[str] = None
+    name: Optional[str] = None
+
+
+class AuthSessionDB(BaseModel):
+    id: str
+    user_id: str
+    created_at: datetime
+    expires_at: datetime
 
 
 class EnrollmentSessionDB(BaseModel):

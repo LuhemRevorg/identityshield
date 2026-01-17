@@ -1,5 +1,6 @@
-"""Conversation service using Gemini, Ollama, or Claude."""
+"""Conversation service using Groq, Gemini, Ollama, or Claude with ElevenLabs TTS."""
 import httpx
+import base64
 from typing import Dict, List, Optional, Tuple
 import logging
 import random
@@ -7,20 +8,30 @@ import os
 
 logger = logging.getLogger(__name__)
 
-# Configuration - priority: Gemini > Ollama > Claude
+# Configuration - priority: Groq > Gemini > Ollama > Claude
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
+# ElevenLabs Configuration
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # Rachel voice
+ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_monolingual_v1")
+
 TARGET_ENROLLMENT_DURATION = 300  # 5 minutes
 
-# Determine which LLM to use
+# Determine which LLM to use (priority: Groq > Gemini > Ollama > Claude)
 def get_llm_provider():
-    if GEMINI_API_KEY:
+    if GROQ_API_KEY:
+        return "groq"
+    elif GEMINI_API_KEY:
         return "gemini"
     elif os.getenv("USE_OLLAMA", "false").lower() == "true":
         return "ollama"
@@ -31,6 +42,7 @@ def get_llm_provider():
 
 LLM_PROVIDER = get_llm_provider()
 logger.info(f"Using LLM provider: {LLM_PROVIDER}")
+logger.info(f"ElevenLabs TTS: {'enabled' if ELEVENLABS_API_KEY else 'disabled'}")
 
 # Conversation objectives
 OBJECTIVES = {
@@ -92,14 +104,86 @@ OBJECTIVES = {
     }
 }
 
-SYSTEM_PROMPT = """You are a friendly AI having a casual video conversation with someone who is setting up their identity protection profile. Your goal is to have a natural, engaging conversation that will help capture their unique characteristics - voice, expressions, and mannerisms.
+# Topic-specific conversation starters and focus areas
+# Keys must match frontend VideoChat.jsx topic labels exactly
+TOPIC_PROMPTS = {
+    "General Chat": {
+        "focus": "any interesting topics that come up naturally",
+        "openings": [
+            "Hey! Great to meet you. So, what's been the highlight of your day so far?",
+            "Hi there! Let's have a fun chat. If you could have any superpower, what would you pick?",
+            "Hello! I'm excited to chat with you. What's something you're really looking forward to lately?",
+        ]
+    },
+    "Work & Career": {
+        "focus": "their professional life, career aspirations, work experiences, and industry insights",
+        "openings": [
+            "Hey! Let's talk about your professional journey. What do you do, and what's the most interesting part of your work?",
+            "Hi there! I'd love to hear about your career. What got you started in your field?",
+            "Hello! Let's chat about work. What's a recent project or challenge you've been tackling?",
+        ]
+    },
+    "Hobbies & Games": {
+        "focus": "their hobbies, gaming experiences, favorite pastimes, and how they spend their free time",
+        "openings": [
+            "Hey! Let's talk hobbies. What's something you love doing in your free time?",
+            "Hi there! I'm curious - do you play any games? What's your favorite?",
+            "Hello! What's a hobby or activity that you could talk about for hours?",
+        ]
+    },
+    "Travel & Adventure": {
+        "focus": "their travel experiences, dream destinations, adventures, and cultural experiences",
+        "openings": [
+            "Hey! Let's talk travel. What's the most memorable place you've ever visited?",
+            "Hi there! I'd love to hear about your adventures. Where's a place that really changed your perspective?",
+            "Hello! If you could teleport anywhere right now, where would you go and why?",
+        ]
+    },
+    "Food & Cooking": {
+        "focus": "culinary experiences, cooking skills, favorite cuisines, restaurants, and food culture",
+        "openings": [
+            "Hey! Let's talk food. What's the best thing you've ever eaten?",
+            "Hi there! I'd love to hear about your culinary adventures. Do you cook, or are you more of a foodie explorer?",
+            "Hello! If you had to eat one cuisine for the rest of your life, what would it be?",
+        ]
+    },
+    "Music & Arts": {
+        "focus": "their musical tastes, artistic interests, creative pursuits, and favorite artists",
+        "openings": [
+            "Hey! Let's talk music and art. What kind of music are you into?",
+            "Hi there! I'm curious about your artistic side. Do you play any instruments or create art?",
+            "Hello! What's a song or piece of art that really moves you?",
+        ]
+    },
+    "Ideas & Philosophy": {
+        "focus": "deep thoughts, philosophical questions, ideas about life, and intellectual discussions",
+        "openings": [
+            "Hey! Let's have a thoughtful conversation. What's an idea that's been on your mind lately?",
+            "Hi there! I love deep discussions. What do you think is the meaning of a good life?",
+            "Hello! Here's a question for you - if you could change one thing about how the world works, what would it be?",
+        ]
+    },
+    "Life & Relationships": {
+        "focus": "personal stories, relationships, life experiences, and meaningful connections",
+        "openings": [
+            "Hey! Let's chat about life. What's something that's been meaningful to you recently?",
+            "Hi there! I'd love to hear about the people in your life. Who's someone that's really influenced you?",
+            "Hello! What's a life lesson you've learned that you'd share with others?",
+        ]
+    },
+}
+
+BASE_SYSTEM_PROMPT = """You are a friendly AI having a casual video conversation with someone who is setting up their identity protection profile. Your goal is to have a natural, engaging conversation that will help capture their unique characteristics - voice, expressions, and mannerisms.
+
+CONVERSATION TOPIC: {topic}
+Focus the conversation on {topic_focus}. Keep the discussion engaging and relevant to this topic while still capturing natural expressions.
 
 IMPORTANT GUIDELINES:
 1. Be warm, curious, and genuinely interested in their responses
 2. Ask follow-up questions that show you're listening
 3. Keep your responses concise (2-3 sentences max) to let them do most of the talking
 4. The conversation should feel like chatting with a friend, not an interview
-5. Mix between light topics and slightly deeper ones naturally
+5. Stay on topic but allow natural tangents that relate back to the main theme
 6. Occasionally react with enthusiasm or mild surprise to keep them expressive
 7. If they give short answers, gently encourage them to elaborate
 
@@ -125,6 +209,38 @@ class ConversationManager:
 
     def __init__(self):
         self.sessions: Dict[str, dict] = {}
+
+    async def _text_to_speech(self, text: str) -> Optional[str]:
+        """Convert text to speech using ElevenLabs API."""
+        if not ELEVENLABS_API_KEY:
+            logger.debug("ElevenLabs API key not configured, skipping TTS")
+            return None
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
+                    headers={
+                        "xi-api-key": ELEVENLABS_API_KEY,
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "text": text,
+                        "model_id": ELEVENLABS_MODEL,
+                        "voice_settings": {
+                            "stability": 0.5,
+                            "similarity_boost": 0.75,
+                        }
+                    }
+                )
+                response.raise_for_status()
+
+                # Return base64 encoded audio
+                audio_bytes = response.content
+                return base64.b64encode(audio_bytes).decode('utf-8')
+        except Exception as e:
+            logger.error(f"ElevenLabs TTS error: {e}")
+            return None
 
     async def _call_gemini(self, messages: List[dict], system: str) -> str:
         """Call Google Gemini API."""
@@ -185,47 +301,70 @@ class ConversationManager:
         )
         return response.content[0].text
 
+    async def _call_groq(self, messages: List[dict], system: str) -> str:
+        """Call Groq API (fast, free LLM)."""
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            formatted_messages = [{"role": "system", "content": system}]
+            formatted_messages.extend(messages)
+
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": GROQ_MODEL,
+                    "messages": formatted_messages,
+                    "max_tokens": 300,
+                    "temperature": 0.7,
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data["choices"][0]["message"]["content"]
+
     async def _get_llm_response(self, messages: List[dict], system: str) -> str:
         """Get response from configured LLM."""
-        if LLM_PROVIDER == "gemini":
+        if LLM_PROVIDER == "groq":
+            return await self._call_groq(messages, system)
+        elif LLM_PROVIDER == "gemini":
             return await self._call_gemini(messages, system)
         elif LLM_PROVIDER == "ollama":
             return await self._call_ollama(messages, system)
         else:
             return await self._call_claude(messages, system)
 
-    def start_conversation(self, session_id: str) -> str:
-        """Initialize a new conversation session."""
+    async def start_conversation(self, session_id: str, topic: str = "General Chat") -> Tuple[str, Optional[str]]:
+        """Initialize a new conversation session with a specific topic."""
+        topic_config = TOPIC_PROMPTS.get(topic, TOPIC_PROMPTS["General Chat"])
+
         self.sessions[session_id] = {
             "messages": [],
             "objectives_covered": set(),
-            "started": True
+            "started": True,
+            "topic": topic,
+            "topic_focus": topic_config["focus"]
         }
 
-        opening = self._generate_opening()
+        opening = random.choice(topic_config["openings"])
         self.sessions[session_id]["messages"].append({
             "role": "assistant",
             "content": opening
         })
 
-        return opening
+        # Generate audio for the opening message
+        audio_base64 = await self._text_to_speech(opening)
 
-    def _generate_opening(self) -> str:
-        """Generate a friendly opening message."""
-        openings = [
-            "Hey! Great to meet you. I'm here to have a quick chat while we set up your identity profile. So, what's been the highlight of your day so far?",
-            "Hi there! Welcome to IdentityShield. Let's have a fun conversation while we get your profile set up. To start - if you could have any superpower, what would you pick?",
-            "Hello! I'm excited to chat with you. While we're setting things up, tell me - what's something you're really looking forward to lately?",
-            "Hey! Thanks for being here. Let's make this fun - what's the most interesting thing you've learned recently?",
-        ]
-        return random.choice(openings)
+        return opening, audio_base64
 
     async def get_response(
         self, session_id: str, user_message: str, elapsed_time: float
-    ) -> Tuple[str, bool, float]:
-        """Get LLM response to user message."""
+    ) -> Tuple[str, bool, float, Optional[str]]:
+        """Get LLM response to user message with optional TTS audio."""
         if session_id not in self.sessions:
-            self.start_conversation(session_id)
+            opening, audio = await self.start_conversation(session_id)
+            return opening, False, 0.0, audio
 
         session = self.sessions[session_id]
 
@@ -235,6 +374,9 @@ class ConversationManager:
 
         objectives_covered = list(session["objectives_covered"])
         objectives_remaining = [o for o in OBJECTIVES.keys() if o not in objectives_covered]
+
+        topic = session.get("topic", "General Chat")
+        topic_focus = session.get("topic_focus", "any interesting topics")
 
         context = f"""
 Time elapsed: {elapsed_time:.0f} seconds (target: {TARGET_ENROLLMENT_DURATION} seconds)
@@ -249,7 +391,10 @@ Objectives remaining: {', '.join(objectives_remaining)}
 
         try:
             messages = session["messages"].copy()
-            system = SYSTEM_PROMPT + "\n\n" + context
+            system = BASE_SYSTEM_PROMPT.format(
+                topic=topic,
+                topic_focus=topic_focus
+            ) + "\n\n" + context
 
             assistant_message = await self._get_llm_response(messages, system)
 
@@ -259,13 +404,18 @@ Objectives remaining: {', '.join(objectives_remaining)}
             session["messages"].append({"role": "assistant", "content": assistant_message})
 
             progress = len(objectives_covered) / len(OBJECTIVES)
-            return assistant_message, actual_end or should_end, progress
+
+            # Generate audio for the response
+            audio_base64 = await self._text_to_speech(assistant_message)
+
+            return assistant_message, actual_end or should_end, progress, audio_base64
 
         except Exception as e:
             logger.error(f"Error getting LLM response: {e}")
             fallback = "That's interesting! Tell me more about that."
             session["messages"].append({"role": "assistant", "content": fallback})
-            return fallback, False, len(objectives_covered) / len(OBJECTIVES)
+            audio_base64 = await self._text_to_speech(fallback)
+            return fallback, False, len(objectives_covered) / len(OBJECTIVES), audio_base64
 
     def _analyze_objectives_from_response(self, session: dict, user_message: str):
         """Analyze user's response to estimate which objectives were triggered."""
@@ -306,7 +456,8 @@ Objectives remaining: {', '.join(objectives_remaining)}
             session = self.sessions.pop(session_id)
             return {
                 "messages_count": len(session["messages"]),
-                "objectives_covered": list(session["objectives_covered"])
+                "objectives_covered": list(session["objectives_covered"]),
+                "topic": session.get("topic", "General Chat")
             }
         return None
 

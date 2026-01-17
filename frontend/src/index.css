@@ -2,98 +2,324 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========================================
+   Apple-Inspired Design System
+   ======================================== */
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  /* Apple system font stack */
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+    'Helvetica Neue', Helvetica, Arial, sans-serif;
+  line-height: 1.47059;
   font-weight: 400;
-  color-scheme: light dark;
+  color-scheme: dark;
+
+  /* Text rendering */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+
+  /* Apple colors */
+  --apple-blue: #007AFF;
+  --apple-green: #34C759;
+  --apple-red: #FF3B30;
+  --apple-orange: #FF9500;
+  --apple-purple: #AF52DE;
+  --apple-pink: #FF2D55;
+  --apple-teal: #5AC8FA;
+  --apple-indigo: #5856D6;
+
+  /* Grays */
+  --gray-50: #F5F5F7;
+  --gray-100: #E8E8ED;
+  --gray-200: #D2D2D7;
+  --gray-300: #AEAEB2;
+  --gray-400: #8E8E93;
+  --gray-500: #636366;
+  --gray-600: #48484A;
+  --gray-700: #3A3A3C;
+  --gray-800: #2C2C2E;
+  --gray-900: #1C1C1E;
 }
 
+/* Base styles */
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: linear-gradient(180deg, #000000 0%, #1C1C1E 100%);
+  color: var(--gray-50);
 }
+
+/* Selection */
+::selection {
+  background: rgba(0, 122, 255, 0.3);
+  color: white;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-600);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-500);
+}
+
+/* ========================================
+   Component Classes
+   ======================================== */
 
 @layer components {
-  .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  /* Glassmorphism card */
+  .glass-card {
+    @apply relative overflow-hidden;
+    background: rgba(28, 28, 30, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
   }
 
-  .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition-colors duration-200;
+  .glass-card-light {
+    @apply relative overflow-hidden;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
   }
 
-  .card {
-    @apply bg-white rounded-xl shadow-lg p-6;
+  /* Apple-style buttons */
+  .btn-apple {
+    @apply relative inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold text-base transition-all duration-200;
+    background: linear-gradient(180deg, #007AFF 0%, #0055D4 100%);
+    border-radius: 12px;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 14px rgba(0, 122, 255, 0.4);
   }
 
-  .input {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all;
+  .btn-apple:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(0, 122, 255, 0.5);
+  }
+
+  .btn-apple:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.4);
+  }
+
+  .btn-apple:disabled {
+    @apply opacity-50 cursor-not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .btn-secondary-apple {
+    @apply relative inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold text-base transition-all duration-200;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .btn-secondary-apple:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .btn-ghost {
+    @apply relative inline-flex items-center justify-center gap-2 px-4 py-2 font-medium text-sm transition-all duration-200;
+    background: transparent;
+    border-radius: 8px;
+    color: var(--apple-blue);
+    border: none;
+  }
+
+  .btn-ghost:hover {
+    background: rgba(0, 122, 255, 0.1);
+  }
+
+  /* Success button */
+  .btn-success {
+    @apply relative inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold text-base transition-all duration-200;
+    background: linear-gradient(180deg, #34C759 0%, #28A745 100%);
+    border-radius: 12px;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 14px rgba(52, 199, 89, 0.4);
+  }
+
+  .btn-success:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(52, 199, 89, 0.5);
+  }
+
+  /* Input fields */
+  .input-apple {
+    @apply w-full px-4 py-3 text-base transition-all duration-200 outline-none;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: white;
+  }
+
+  .input-apple::placeholder {
+    color: var(--gray-400);
+  }
+
+  .input-apple:focus {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--apple-blue);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+  }
+
+  /* Text styles */
+  .text-gradient {
+    background: linear-gradient(90deg, #007AFF 0%, #5856D6 50%, #AF52DE 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-warm {
+    background: linear-gradient(90deg, #FF9500 0%, #FF3B30 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Hero headline */
+  .hero-headline {
+    @apply text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-tight;
+  }
+
+  .hero-subheadline {
+    @apply text-xl md:text-2xl font-normal tracking-normal leading-relaxed;
+    color: var(--gray-300);
   }
 }
 
-/* Video container styles */
+/* ========================================
+   Video Container
+   ======================================== */
+
 .video-container {
   position: relative;
   width: 100%;
-  max-width: 640px;
   aspect-ratio: 4/3;
-  background: #1a1a2e;
-  border-radius: 12px;
+  background: linear-gradient(145deg, #1C1C1E 0%, #000000 100%);
+  border-radius: 20px;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .video-container video {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scaleX(-1); /* Mirror for webcam */
+  transform: scaleX(-1);
 }
 
-/* Chat bubble styles */
+.video-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.3) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ========================================
+   Chat Bubbles (iMessage style)
+   ======================================== */
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+
 .chat-bubble {
-  max-width: 80%;
+  max-width: 85%;
   padding: 12px 16px;
-  border-radius: 16px;
-  margin-bottom: 8px;
+  border-radius: 18px;
+  font-size: 15px;
+  line-height: 1.4;
+  animation: scaleIn 0.2s ease-out;
 }
 
 .chat-bubble.assistant {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
   color: white;
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 6px;
   align-self: flex-start;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
 }
 
 .chat-bubble.user {
-  background: #f3f4f6;
-  color: #1f2937;
-  border-bottom-right-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-bottom-right-radius: 6px;
   align-self: flex-end;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Progress ring styles */
+@keyframes scaleIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ========================================
+   Progress Ring
+   ======================================== */
+
 .progress-ring {
   transform: rotate(-90deg);
 }
 
-.progress-ring-circle {
-  transition: stroke-dashoffset 0.35s;
-  transform-origin: 50% 50%;
+.progress-ring-bg {
+  stroke: rgba(255, 255, 255, 0.1);
 }
 
-/* Pulse animation for recording indicator */
+.progress-ring-fill {
+  transition: stroke-dashoffset 0.5s ease-out;
+  stroke-linecap: round;
+}
+
+/* ========================================
+   Recording Indicator
+   ======================================== */
+
 @keyframes recording-pulse {
   0%, 100% {
     opacity: 1;
+    transform: scale(1);
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.6;
+    transform: scale(1.1);
   }
 }
 
@@ -101,7 +327,82 @@ body {
   animation: recording-pulse 1.5s ease-in-out infinite;
 }
 
-/* Shimmer loading effect */
+/* ========================================
+   Typing Indicator
+   ======================================== */
+
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px;
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  animation: typingBounce 1.4s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-4px);
+  }
+}
+
+/* ========================================
+   Feature Cards
+   ======================================== */
+
+.feature-card {
+  @apply p-6 transition-all duration-300;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+}
+
+.feature-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.feature-icon {
+  @apply w-12 h-12 flex items-center justify-center rounded-2xl mb-4;
+  background: linear-gradient(135deg, rgba(0, 122, 255, 0.2) 0%, rgba(88, 86, 214, 0.2) 100%);
+}
+
+/* ========================================
+   Shimmer Loading
+   ======================================== */
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
 @keyframes shimmer {
   0% {
     background-position: -200% 0;
@@ -111,8 +412,102 @@ body {
   }
 }
 
-.shimmer {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+/* ========================================
+   Drop Zone
+   ======================================== */
+
+.drop-zone {
+  @apply relative flex flex-col items-center justify-center p-12 transition-all duration-300 cursor-pointer;
+  background: rgba(255, 255, 255, 0.02);
+  border: 2px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+}
+
+.drop-zone:hover,
+.drop-zone.active {
+  background: rgba(0, 122, 255, 0.05);
+  border-color: var(--apple-blue);
+}
+
+.drop-zone.active {
+  border-style: solid;
+  box-shadow: 0 0 30px rgba(0, 122, 255, 0.2);
+}
+
+/* ========================================
+   Status Badges
+   ======================================== */
+
+.badge {
+  @apply inline-flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-full;
+}
+
+.badge-success {
+  background: rgba(52, 199, 89, 0.15);
+  color: #34C759;
+  border: 1px solid rgba(52, 199, 89, 0.3);
+}
+
+.badge-danger {
+  background: rgba(255, 59, 48, 0.15);
+  color: #FF3B30;
+  border: 1px solid rgba(255, 59, 48, 0.3);
+}
+
+.badge-warning {
+  background: rgba(255, 149, 0, 0.15);
+  color: #FF9500;
+  border: 1px solid rgba(255, 149, 0, 0.3);
+}
+
+.badge-info {
+  background: rgba(0, 122, 255, 0.15);
+  color: #007AFF;
+  border: 1px solid rgba(0, 122, 255, 0.3);
+}
+
+/* ========================================
+   Metric Cards
+   ======================================== */
+
+.metric-card {
+  @apply p-4 rounded-2xl;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.metric-value {
+  @apply text-3xl font-bold tracking-tight;
+}
+
+.metric-label {
+  @apply text-sm font-medium;
+  color: var(--gray-400);
+}
+
+/* ========================================
+   Glow Effects
+   ======================================== */
+
+.glow-blue {
+  box-shadow: 0 0 40px rgba(0, 122, 255, 0.4);
+}
+
+.glow-green {
+  box-shadow: 0 0 40px rgba(52, 199, 89, 0.4);
+}
+
+.glow-red {
+  box-shadow: 0 0 40px rgba(255, 59, 48, 0.4);
+}
+
+/* ========================================
+   Navigation
+   ======================================== */
+
+.nav-apple {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }

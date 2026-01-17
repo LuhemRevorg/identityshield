@@ -9,11 +9,42 @@ const api = axios.create({
   },
 });
 
+// Auth APIs
+export const register = async (email, password, name = null) => {
+  const response = await api.post('/auth/register', {
+    email,
+    password,
+    name,
+  });
+  return response.data;
+};
+
+export const login = async (email, password) => {
+  const response = await api.post('/auth/login', {
+    email,
+    password,
+  });
+  return response.data;
+};
+
+export const logout = async (sessionToken) => {
+  const formData = new FormData();
+  formData.append('session_token', sessionToken);
+  const response = await api.post('/auth/logout', formData);
+  return response.data;
+};
+
+export const getCurrentUser = async (sessionToken) => {
+  const response = await api.get(`/auth/me?session_token=${sessionToken}`);
+  return response.data;
+};
+
 // Enrollment APIs
-export const startEnrollment = async (userId = null, email = null) => {
+export const startEnrollment = async (topic = 'General Chat', userId = null, email = null) => {
   const response = await api.post('/enrollment/start', {
     user_id: userId,
     email: email,
+    topic: topic,
   });
   return response.data;
 };
@@ -39,12 +70,25 @@ export const getProfile = async (userId) => {
   return response.data;
 };
 
+export const getEnrollmentSessions = async (userId) => {
+  const response = await api.get(`/sessions/${userId}`);
+  return response.data;
+};
+
 // Conversation APIs
 export const sendMessage = async (sessionId, message, elapsedTime) => {
   const response = await api.post('/conversation/message', {
     session_id: sessionId,
     message: message,
     elapsed_time: elapsedTime,
+  });
+  return response.data;
+};
+
+// Transcription API (uses Groq Whisper)
+export const transcribeAudio = async (audioBase64) => {
+  const response = await api.post('/transcribe', {
+    audio_base64: audioBase64,
   });
   return response.data;
 };

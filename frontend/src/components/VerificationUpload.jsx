@@ -9,6 +9,8 @@ import {
   Loader2,
   ArrowLeft,
   AlertCircle,
+  UploadCloud,
+  Sparkles,
 } from 'lucide-react';
 import { verifyContent } from '../services/api';
 
@@ -87,74 +89,91 @@ const VerificationUpload = ({ userId, onComplete, onCancel }) => {
       {/* Back button */}
       <button
         onClick={onCancel}
-        className="flex items-center gap-2 text-gray-400 hover:text-white mb-6"
+        className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-6"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowLeft className="w-5 h-5" />
         Back to Dashboard
       </button>
 
-      <div className="card bg-gray-800/50 border border-gray-700">
-        <h2 className="text-2xl font-bold text-white mb-2">Verify Content</h2>
-        <p className="text-gray-400 mb-6">
-          Upload a video or audio file to check if it's authentic or synthetic.
-        </p>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card p-8"
+      >
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-apple-blue/20 to-apple-indigo/20 flex items-center justify-center">
+            <Sparkles className="w-8 h-8 text-apple-blue" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Verify Content</h2>
+          <p className="text-gray-400">
+            Upload a video or audio file to check if it's authentic or synthetic.
+          </p>
+        </div>
 
         {/* Processing overlay */}
         {isVerifying && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center z-50"
+          >
             <div className="text-center">
-              <div className="relative w-24 h-24 mx-auto mb-4">
-                <Loader2 className="w-24 h-24 text-primary-400 animate-spin" />
+              <div className="w-24 h-24 mx-auto mb-6 relative">
+                <div className="absolute inset-0 rounded-full border-4 border-white/10" />
+                <div className="absolute inset-0 rounded-full border-4 border-apple-blue border-t-transparent animate-spin" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Upload className="w-8 h-8 text-primary-400" />
+                  <Upload className="w-10 h-10 text-apple-blue" />
                 </div>
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">
+              <h3 className="text-2xl font-semibold text-white mb-2">
                 Analyzing Content
               </h3>
               <p className="text-gray-400">{progress}</p>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Dropzone */}
         {!file ? (
           <div
             {...getRootProps()}
-            className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${
-              isDragActive
-                ? 'border-primary-500 bg-primary-500/10'
-                : 'border-gray-600 hover:border-gray-500'
-            }`}
+            className={`drop-zone ${isDragActive ? 'active' : ''}`}
           >
             <input {...getInputProps()} />
-            <Upload
-              className={`w-12 h-12 mx-auto mb-4 ${
-                isDragActive ? 'text-primary-400' : 'text-gray-500'
-              }`}
-            />
-            <p className="text-white font-medium mb-2">
-              {isDragActive
-                ? 'Drop the file here'
-                : 'Drag & drop a video or audio file'}
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white/5 flex items-center justify-center">
+              <UploadCloud
+                className={`w-8 h-8 ${isDragActive ? 'text-apple-blue' : 'text-gray-500'}`}
+              />
+            </div>
+            <p className="text-white font-semibold mb-1">
+              {isDragActive ? 'Drop the file here' : 'Drag & drop a file here'}
             </p>
-            <p className="text-gray-500 text-sm">
-              or click to browse (max 100MB)
+            <p className="text-gray-500 text-sm mb-4">
+              or click to browse
             </p>
-            <p className="text-gray-600 text-xs mt-2">
-              Supported: MP4, WebM, MOV, AVI, MP3, WAV, M4A
-            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {['MP4', 'WebM', 'MOV', 'MP3', 'WAV'].map((format) => (
+                <span
+                  key={format}
+                  className="px-2 py-1 text-xs text-gray-500 bg-white/5 rounded-md"
+                >
+                  {format}
+                </span>
+              ))}
+            </div>
+            <p className="text-gray-600 text-xs mt-3">Maximum file size: 100MB</p>
           </div>
         ) : (
           /* Selected file preview */
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-gray-900/50 rounded-xl p-6"
+            className="rounded-2xl bg-white/5 border border-white/10 p-5"
           >
             <div className="flex items-start gap-4">
-              <div className="w-16 h-16 bg-primary-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <FileIcon className="w-8 h-8 text-primary-400" />
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-apple-blue/20 to-apple-indigo/20 flex items-center justify-center flex-shrink-0">
+                <FileIcon className="w-7 h-7 text-apple-blue" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-white font-medium truncate">{file.name}</p>
@@ -164,15 +183,15 @@ const VerificationUpload = ({ userId, onComplete, onCancel }) => {
               </div>
               <button
                 onClick={handleRemoveFile}
-                className="text-gray-500 hover:text-white p-1"
+                className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 text-gray-400" />
               </button>
             </div>
 
-            {/* Video preview for video files */}
+            {/* Video preview */}
             {file.type?.startsWith('video') && (
-              <div className="mt-4 rounded-lg overflow-hidden bg-black">
+              <div className="mt-4 rounded-xl overflow-hidden bg-black">
                 <video
                   src={URL.createObjectURL(file)}
                   controls
@@ -181,9 +200,9 @@ const VerificationUpload = ({ userId, onComplete, onCancel }) => {
               </div>
             )}
 
-            {/* Audio preview for audio files */}
+            {/* Audio preview */}
             {file.type?.startsWith('audio') && (
-              <div className="mt-4">
+              <div className="mt-4 p-4 rounded-xl bg-black/50">
                 <audio
                   src={URL.createObjectURL(file)}
                   controls
@@ -197,24 +216,24 @@ const VerificationUpload = ({ userId, onComplete, onCancel }) => {
         {/* Error message */}
         {error && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mt-4 bg-red-900/50 text-red-300 p-4 rounded-lg flex items-start gap-3"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 p-4 rounded-xl bg-apple-red/10 border border-apple-red/30 flex items-start gap-3"
           >
-            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <p>{error}</p>
+            <AlertCircle className="w-5 h-5 text-apple-red flex-shrink-0 mt-0.5" />
+            <p className="text-apple-red text-sm">{error}</p>
           </motion.div>
         )}
 
         {/* Actions */}
-        <div className="mt-6 flex gap-4">
-          <button onClick={onCancel} className="btn-secondary flex-1">
+        <div className="mt-6 flex gap-3">
+          <button onClick={onCancel} className="flex-1 btn-secondary-apple">
             Cancel
           </button>
           <button
             onClick={handleVerify}
             disabled={!file || isVerifying}
-            className="btn-primary flex-1 flex items-center justify-center gap-2"
+            className="flex-1 btn-apple"
           >
             {isVerifying ? (
               <>
@@ -231,16 +250,28 @@ const VerificationUpload = ({ userId, onComplete, onCancel }) => {
         </div>
 
         {/* Info box */}
-        <div className="mt-6 bg-gray-900/50 rounded-lg p-4 text-sm text-gray-400">
-          <p className="font-medium text-gray-300 mb-2">How it works:</p>
-          <ul className="space-y-1">
-            <li>• We extract voice and face features from your uploaded content</li>
-            <li>• These are compared against your enrolled identity profile</li>
-            <li>• We check voice patterns, facial features, and lip-sync timing</li>
-            <li>• Results show confidence scores and any detected anomalies</li>
+        <div className="mt-8 p-4 rounded-xl bg-white/5 border border-white/5">
+          <p className="text-sm font-medium text-white mb-3">How it works</p>
+          <ul className="space-y-2 text-sm text-gray-400">
+            <li className="flex items-start gap-2">
+              <span className="text-apple-blue">1.</span>
+              Extract voice and face features from your uploaded content
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-apple-blue">2.</span>
+              Compare against your enrolled identity profile
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-apple-blue">3.</span>
+              Analyze voice patterns, facial features, and lip-sync timing
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-apple-blue">4.</span>
+              Get confidence scores and detected anomalies
+            </li>
           </ul>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

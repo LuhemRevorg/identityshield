@@ -145,6 +145,13 @@ export const useMediaStream = (onChunkReady) => {
     setPermissionGranted(false);
   }, [stream, stopRecording]);
 
+  // Attach stream to video element when both are available
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
