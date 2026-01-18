@@ -22,7 +22,11 @@ export const AuthProvider = ({ children }) => {
           // Verify session is still valid
           try {
             const userData = await getCurrentUser(sessionToken);
-            setUser({ ...userData, sessionToken });
+            setUser({
+              ...userData,
+              userId: userData.user_id ?? userData.userId,
+              sessionToken,
+            });
           } catch (err) {
             // Session expired, clear storage
             localStorage.removeItem(SESSION_TOKEN_KEY);
@@ -116,7 +120,11 @@ export const AuthProvider = ({ children }) => {
 
     try {
       const userData = await getCurrentUser(sessionToken);
-      setUser({ ...userData, sessionToken });
+      setUser({
+        ...userData,
+        userId: userData.user_id ?? userData.userId,
+        sessionToken,
+      });
     } catch (err) {
       console.error('Error refreshing user:', err);
     }

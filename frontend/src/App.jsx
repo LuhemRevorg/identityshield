@@ -21,6 +21,7 @@ const VIEWS = {
 
 function AppContent() {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
+  const userId = user?.userId ?? user?.user_id;
   const [currentView, setCurrentView] = useState(VIEWS.LANDING);
   const [profile, setProfile] = useState(null);
   const [verificationResult, setVerificationResult] = useState(null);
@@ -43,9 +44,9 @@ function AppContent() {
   // Load profile if user is authenticated
   useEffect(() => {
     const loadProfile = async () => {
-      if (isAuthenticated && user?.userId) {
+      if (isAuthenticated && userId) {
         try {
-          const data = await getProfile(user.userId);
+          const data = await getProfile(userId);
           setProfile(data);
           // If user has a profile, go to dashboard (unless on landing)
           if (data.strength_score > 0 && currentView === VIEWS.LANDING) {
@@ -57,7 +58,7 @@ function AppContent() {
       }
     };
     loadProfile();
-  }, [isAuthenticated, user?.userId]);
+  }, [isAuthenticated, userId]);
 
   // Handle "Get Started" click
   const handleGetStarted = () => {
@@ -78,7 +79,7 @@ function AppContent() {
 
   const handleEnrollmentComplete = async (newUserId) => {
     try {
-      const data = await getProfile(newUserId || user?.userId);
+      const data = await getProfile(newUserId || userId);
       setProfile(data);
     } catch (err) {
       console.error('Error loading profile after enrollment:', err);
@@ -142,12 +143,16 @@ function AppContent() {
 
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5">
+                <button
+                  type="button"
+                  onClick={() => setCurrentView(VIEWS.DASHBOARD)}
+                  className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+                >
                   <User className="w-4 h-4 text-gray-400" />
                   <span className="text-sm text-gray-300">
                     {user?.name || user?.email?.split('@')[0] || 'User'}
                   </span>
-                </div>
+                </button>
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-2 text-gray-400 hover:text-white text-sm font-medium transition-colors"
@@ -338,7 +343,7 @@ function AppContent() {
               className="min-h-[calc(100vh-56px)] px-6 py-8"
             >
               <VideoChat
-                userId={user?.userId}
+                userId={userId}
                 onComplete={handleEnrollmentComplete}
                 onCancel={() => setCurrentView(profile?.strength_score > 0 ? VIEWS.DASHBOARD : VIEWS.LANDING)}
               />
@@ -375,7 +380,7 @@ function AppContent() {
               className="min-h-[calc(100vh-56px)] px-6 py-8"
             >
               <VerificationUpload
-                userId={user?.userId}
+                userId={userId}
                 onComplete={handleVerificationComplete}
                 onCancel={() => setCurrentView(VIEWS.DASHBOARD)}
               />

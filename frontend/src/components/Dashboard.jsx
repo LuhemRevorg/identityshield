@@ -25,18 +25,24 @@ const Dashboard = ({ user, profile, onVerify, onStrengthen }) => {
   const [verifications, setVerifications] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [loadingVerifications, setLoadingVerifications] = useState(true);
+  const userId = user?.userId ?? user?.user_id;
 
   useEffect(() => {
-    if (user?.userId) {
-      loadData();
+    if (userId) {
+      setLoadingSessions(true);
+      setLoadingVerifications(true);
+      loadData(userId);
+    } else {
+      setLoadingSessions(false);
+      setLoadingVerifications(false);
     }
-  }, [user?.userId]);
+  }, [userId]);
 
-  const loadData = async () => {
+  const loadData = async (currentUserId) => {
     try {
       const [sessionsData, verificationsData] = await Promise.all([
-        getEnrollmentSessions(user.userId),
-        getVerificationHistory(user.userId, 5),
+        getEnrollmentSessions(currentUserId),
+        getVerificationHistory(currentUserId, 5),
       ]);
       setSessions(sessionsData.sessions || []);
       setVerifications(verificationsData.history || []);
