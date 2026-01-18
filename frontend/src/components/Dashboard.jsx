@@ -17,6 +17,8 @@ import {
   ChevronRight,
   FileVideo,
   History,
+  Play,
+  X,
 } from 'lucide-react';
 import { getEnrollmentSessions, getVerificationHistory } from '../services/api';
 
@@ -25,6 +27,7 @@ const Dashboard = ({ user, profile, onVerify, onStrengthen }) => {
   const [verifications, setVerifications] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [loadingVerifications, setLoadingVerifications] = useState(true);
+  const [activeVideo, setActiveVideo] = useState(null);
   const userId = user?.userId ?? user?.user_id;
 
   useEffect(() => {
@@ -342,7 +345,7 @@ const Dashboard = ({ user, profile, onVerify, onStrengthen }) => {
           </motion.div>
         </div>
 
-        {/* Right Column - Verification History */}
+          {/* Right Column - Verification History */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -410,10 +413,31 @@ const Dashboard = ({ user, profile, onVerify, onStrengthen }) => {
                       <p className="text-gray-400 text-sm">
                         {Math.round(verification.confidence * 100)}% confidence
                       </p>
+                      {verification.file_name && (
+                        <p className="text-gray-500 text-xs mt-1">{verification.file_name}</p>
+                      )}
                       <p className="text-gray-500 text-xs mt-1">
                         {formatDate(verification.verified_at)} at {formatTime(verification.verified_at)}
                       </p>
                     </div>
+                    {verification.file_url && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveVideo(verification)}
+                        className="relative w-24 h-16 rounded-lg overflow-hidden border border-white/10 bg-black/40 flex-shrink-0 hover:border-white/30 transition-colors"
+                      >
+                        <video
+                          src={verification.file_url}
+                          className="w-full h-full object-cover"
+                          muted
+                          playsInline
+                          preload="metadata"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <Play className="w-5 h-5 text-white" />
+                        </div>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -421,6 +445,39 @@ const Dashboard = ({ user, profile, onVerify, onStrengthen }) => {
           )}
         </motion.div>
       </div>
+
+      {activeVideo && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center px-6"
+        >
+          <div className="w-full max-w-3xl rounded-2xl bg-apple-dark border border-white/10 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+              <div>
+                <p className="text-white font-medium">Verification Playback</p>
+                <p className="text-gray-400 text-sm">{activeVideo.file_name || 'Verification video'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveVideo(null)}
+                className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center"
+              >
+                <X className="w-4 h-4 text-gray-300" />
+              </button>
+            </div>
+            <div className="bg-black">
+              <video
+                src={activeVideo.file_url}
+                className="w-full max-h-[70vh] object-contain"
+                controls
+                autoPlay
+              />
+            </div>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };

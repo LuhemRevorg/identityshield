@@ -48,10 +48,7 @@ function AppContent() {
         try {
           const data = await getProfile(userId);
           setProfile(data);
-          // If user has a profile, go to dashboard (unless on landing)
-          if (data.strength_score > 0 && currentView === VIEWS.LANDING) {
-            setCurrentView(VIEWS.DASHBOARD);
-          }
+          // Keep homepage as the default landing view
         } catch (err) {
           console.error('Error loading profile:', err);
         }
@@ -116,15 +113,15 @@ function AppContent() {
     <div className="min-h-screen bg-black">
       {/* Ambient gradient background */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-apple-blue/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-apple-purple/10 rounded-full blur-[100px]" />
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-apple-green/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-apple-teal/10 rounded-full blur-[100px]" />
       </div>
 
       {/* Navigation */}
       <nav className="nav-apple fixed top-0 left-0 right-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <button
-            onClick={() => setCurrentView(isAuthenticated && profile?.strength_score > 0 ? VIEWS.DASHBOARD : VIEWS.LANDING)}
+            onClick={() => setCurrentView(VIEWS.LANDING)}
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
           >
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-apple-blue to-apple-indigo flex items-center justify-center">

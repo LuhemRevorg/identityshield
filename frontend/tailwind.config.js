@@ -19,17 +19,17 @@ export default {
         ],
       },
       colors: {
-        // Apple-inspired color palette
+        // Green/black hacker palette
         apple: {
-          blue: '#007AFF',
-          green: '#34C759',
+          blue: '#19FF7A',
+          green: '#00E676',
           red: '#FF3B30',
           orange: '#FF9500',
-          yellow: '#FFCC00',
-          purple: '#AF52DE',
+          yellow: '#FFD166',
+          purple: '#0F3D2A',
           pink: '#FF2D55',
-          teal: '#5AC8FA',
-          indigo: '#5856D6',
+          teal: '#2DF0A1',
+          indigo: '#0D7A4A',
         },
         // Neutral grays (Apple style)
         gray: {
@@ -55,8 +55,8 @@ export default {
         'apple': '0 4px 14px 0 rgba(0, 0, 0, 0.1)',
         'apple-lg': '0 8px 30px rgba(0, 0, 0, 0.12)',
         'apple-xl': '0 20px 60px rgba(0, 0, 0, 0.15)',
-        'glow': '0 0 40px rgba(0, 122, 255, 0.3)',
-        'glow-green': '0 0 40px rgba(52, 199, 89, 0.3)',
+        'glow': '0 0 40px rgba(25, 255, 122, 0.3)',
+        'glow-green': '0 0 40px rgba(0, 230, 118, 0.3)',
         'glow-red': '0 0 40px rgba(255, 59, 48, 0.3)',
       },
       backdropBlur: {
