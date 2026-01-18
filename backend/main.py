@@ -10,10 +10,12 @@ from typing import Optional
 
 import httpx
 import bcrypt
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from pathlib import Path
 
 # Load environment variables
 load_dotenv()
@@ -66,6 +68,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+assets_dir = Path(__file__).resolve().parent / "assets"
+if assets_dir.exists():
+    app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
 # Configure CORS
 app.add_middleware(
@@ -500,7 +506,7 @@ async def verify_content(
 
 
 @app.get("/api/verify/history/{user_id}")
-async def get_verification_history(user_id: str, limit: int = 10):
+async def get_verification_history(user_id: str, request: Request, limit: int = 10):
     """Get verification history for a user."""
     try:
         user = await db.get_user(user_id)
@@ -508,6 +514,11 @@ async def get_verification_history(user_id: str, limit: int = 10):
             raise HTTPException(status_code=404, detail="User not found")
 
         history = await verification_service.get_verification_history(user_id, limit)
+        base_url = str(request.base_url).rstrip("/")
+        for item in history:
+            file_url = item.get("file_url")
+            if file_url and file_url.startswith("/"):
+                item["file_url"] = f"{base_url}{file_url}"
         return {"history": history}
     except HTTPException:
         raise

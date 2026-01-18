@@ -2,6 +2,7 @@
 import asyncio
 import uuid
 import json
+import hashlib
 import random
 from datetime import datetime, timedelta
 import bcrypt
@@ -13,7 +14,7 @@ def hash_password(password: str) -> str:
     """Hash a password using bcrypt."""
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
-DATABASE_PATH = "./data/identityshield.db"
+DATABASE_PATH = Path(__file__).resolve().parent / "data" / "identityshield.db"
 
 async def seed_user():
     # Ensure data directory exists
@@ -126,6 +127,41 @@ async def seed_user():
                 float(duration_seconds),
                 json.dumps(objectives),
             )
+        )
+    await conn.commit()
+
+    # Seed verification history for provided assets
+    await conn.execute("DELETE FROM verifications WHERE user_id = ?", (user_id,))
+    await conn.commit()
+
+    assets_dir = Path(__file__).resolve().parent / "assets"
+    assets = [
+        (assets_dir / "Real_mario.mov", "Real_mario.mov", True, 0.94),
+        (assets_dir / "Deepfake_dolphin.mp4", "Deepfake_dolphin.mp4", False, 0.12),
+    ]
+    verify_base = base_date.replace(hour=15, minute=10)
+
+    for offset, (asset_path, file_name, authentic, confidence) in enumerate(assets):
+        file_bytes = asset_path.read_bytes()
+        file_hash = hashlib.sha256(file_bytes).hexdigest()
+        verified_at = verify_base + timedelta(minutes=offset * 22)
+        result = {
+            "authentic": authentic,
+            "confidence": confidence,
+            "file_name": file_name,
+            "file_url": f"/assets/{file_name}",
+            "breakdown": {
+                "voice_match": confidence,
+                "face_match": confidence,
+                "lip_sync": confidence,
+                "speech_patterns": confidence,
+            },
+            "anomalies": ["Synthetic patterns detected"] if not authentic else [],
+        }
+
+        await conn.execute(
+            "INSERT INTO verifications (id, user_id, verified_at, result, file_hash) VALUES (?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), user_id, verified_at.isoformat(), json.dumps(result), file_hash)
         )
     await conn.commit()
     await conn.close()

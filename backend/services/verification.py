@@ -344,7 +344,9 @@ class VerificationService:
                 "id": v.id,
                 "verified_at": v.verified_at.isoformat(),
                 "authentic": v.result.get("authentic", False),
-                "confidence": v.result.get("confidence", 0)
+                "confidence": v.result.get("confidence", 0),
+                "file_name": v.result.get("file_name"),
+                "file_url": v.result.get("file_url")
             }
             for v in verifications
         ]
