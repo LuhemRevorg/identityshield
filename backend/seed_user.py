@@ -1,7 +1,9 @@
 """Seed a test user into the database."""
 import asyncio
 import uuid
-from datetime import datetime
+import json
+import random
+from datetime import datetime, timedelta
 import bcrypt
 import aiosqlite
 from pathlib import Path
@@ -80,26 +82,55 @@ async def seed_user():
     name = "Mehul Grover"
 
     # Check if user already exists
+    created_user = False
     async with conn.execute("SELECT * FROM users WHERE email = ?", (email,)) as cursor:
         existing = await cursor.fetchone()
         if existing:
             print(f"User with email {email} already exists (id: {existing['id']})")
-            await conn.close()
-            return
+            user_id = existing["id"]
+        else:
+            # Create user
+            user_id = str(uuid.uuid4())
+            password_hash = hash_password(password)
+            now = datetime.utcnow()
 
-    # Create user
-    user_id = str(uuid.uuid4())
-    password_hash = hash_password(password)
+            await conn.execute(
+                "INSERT INTO users (id, created_at, email, password_hash, name) VALUES (?, ?, ?, ?, ?)",
+                (user_id, now.isoformat(), email, password_hash, name)
+            )
+            await conn.commit()
+            created_user = True
+
     now = datetime.utcnow()
+    await conn.execute("DELETE FROM enrollment_sessions WHERE user_id = ?", (user_id,))
+    await conn.commit()
 
-    await conn.execute(
-        "INSERT INTO users (id, created_at, email, password_hash, name) VALUES (?, ?, ?, ?, ?)",
-        (user_id, now.isoformat(), email, password_hash, name)
-    )
+    # Seed 7 completed enrollment sessions on Jan 17
+    base_date = datetime.utcnow().replace(month=1, day=17, hour=9, minute=0, second=0, microsecond=0)
+    for index in range(7):
+        session_id = str(uuid.uuid4())
+        start_time = base_date + timedelta(hours=random.randint(0, 10), minutes=random.randint(0, 59))
+        duration_seconds = random.randint(180, 480)
+        completed_at = start_time + timedelta(seconds=duration_seconds)
+        objectives = ["voice", "face", "sync"]
+
+        await conn.execute(
+            """INSERT INTO enrollment_sessions
+               (id, user_id, started_at, completed_at, duration_seconds, objectives_covered)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                session_id,
+                user_id,
+                start_time.isoformat(),
+                completed_at.isoformat(),
+                float(duration_seconds),
+                json.dumps(objectives),
+            )
+        )
     await conn.commit()
     await conn.close()
 
-    print(f"Created seed user:")
+    print(f"{'Created' if created_user else 'Updated'} seed user:")
     print(f"  Email: {email}")
     print(f"  Password: {password}")
     print(f"  Name: {name}")
